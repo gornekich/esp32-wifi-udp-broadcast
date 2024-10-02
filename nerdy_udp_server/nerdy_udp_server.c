@@ -15,8 +15,28 @@
 
 static const char *TAG = "UDP_SERVER";
 
+typedef struct {
+    int size;
+    char addr[10][128];
+} IpAddrSet;
+
+IpAddrSet ip_addr_set;
+
+int udp_server_get_ip_addr_size() {
+     return ip_addr_set.size;
+}
+
+char* udp_server_get_ip_addr(int index) {
+    return ip_addr_set.addr[index];
+}
+
 static void udp_server_task(void *pvParameters)
 {
+    const char*global_addr = "140.228.74.80";
+    memset(&ip_addr_set, 0, sizeof(IpAddrSet));
+    memcpy(ip_addr_set.addr[0], global_addr, strlen(global_addr));
+    ip_addr_set.size++;
+
     // Set parameters
     char rx_buffer[128];
     char addr_str[128];
@@ -74,12 +94,23 @@ static void udp_server_task(void *pvParameters)
                 ESP_LOGI(TAG, "Received %d bytes from %s:", len, addr_str);
                 ESP_LOGI(TAG, "%s", rx_buffer);
 
-                // Sending back the same message to acknowledge delivery
-                int err = sendto(sock, rx_buffer, len, 0, (struct sockaddr *)&source_addr, sizeof(source_addr));
-                if (err < 0) {
-                    ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
-                    break;
+                bool addr_exist = false;
+                for(int i = 0; i < ip_addr_set.size; i++) {
+                    if(memcmp(ip_addr_set.addr[i], addr_str, sizeof(addr_str) - 1) == 0) {
+                        addr_exist = true;
+                    }
                 }
+                if(!addr_exist) {
+                    memcpy(ip_addr_set.addr[ip_addr_set.size], addr_str, sizeof(addr_str) - 1);
+                    ip_addr_set.size++;
+                }
+
+                // // Sending back the same message to acknowledge delivery
+                // int err = sendto(sock, rx_buffer, len, 0, (struct sockaddr *)&source_addr, sizeof(source_addr));
+                // if (err < 0) {
+                //     ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
+                //     break;
+                // }
             }
         }
 
